@@ -20,6 +20,9 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.text.TextPaint;
 
+import info.bilingo.bilingoclientapp.common.GraphicOverlay;
+import info.bilingo.bilingoclientapp.common.GraphicOverlay.Graphic;
+
 import java.util.List;
 
 /**

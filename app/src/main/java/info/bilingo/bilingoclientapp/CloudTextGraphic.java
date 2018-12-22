@@ -19,7 +19,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 
-import info.bilingo.bilingoclientapp.GraphicOverlay.Graphic;
+import info.bilingo.bilingoclientapp.common.GraphicOverlay;
+import info.bilingo.bilingoclientapp.common.GraphicOverlay.Graphic;
 import com.google.firebase.ml.vision.document.FirebaseVisionDocumentText;
 
 import java.util.List;

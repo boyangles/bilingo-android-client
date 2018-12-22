@@ -8,6 +8,8 @@ import com.google.firebase.ml.vision.face.FirebaseVisionFace;
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceContour;
 import com.google.firebase.ml.vision.face.FirebaseVisionFaceLandmark;
 
+import info.bilingo.bilingoclientapp.common.GraphicOverlay;
+
 /** Graphic instance for rendering face contours graphic overlay view. */
 public class FaceContourGraphic extends GraphicOverlay.Graphic {
 

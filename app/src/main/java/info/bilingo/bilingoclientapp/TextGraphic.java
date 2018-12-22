@@ -21,7 +21,8 @@ import android.graphics.RectF;
 import android.util.Log;
 
 import com.google.firebase.ml.vision.text.FirebaseVisionText;
-import info.bilingo.bilingoclientapp.GraphicOverlay.Graphic;
+import info.bilingo.bilingoclientapp.common.GraphicOverlay;
+import info.bilingo.bilingoclientapp.common.GraphicOverlay.Graphic;
 
 /**
  * Graphic instance for rendering TextBlock position, size, and ID within an associated graphic

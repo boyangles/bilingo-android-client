@@ -16,7 +16,7 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         android:contentDescription="@string/select_image_for_text_recognition" />
-    <info.bilingo.bilingoclientapp.GraphicOverlay
+    <info.bilingo.bilingoclientapp.common.GraphicOverlay
         android:id="@+id/graphic_overlay"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
