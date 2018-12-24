@@ -31,8 +31,10 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -75,6 +77,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView mImageDetails;
     private ImageView mMainImage;
+    private ProgressBar mProgressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,6 +98,10 @@ public class MainActivity extends AppCompatActivity {
 
         mImageDetails = findViewById(R.id.image_details);
         mMainImage = findViewById(R.id.main_image);
+        mProgressBar = findViewById(R.id.progress_bar);
+
+        mImageDetails.setVisibility(View.GONE);
+        mProgressBar.setVisibility(View.GONE);
     }
 
     public void startGalleryChooser() {
@@ -273,7 +280,12 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(String result) {
             MainActivity activity = mActivityWeakReference.get();
             if (activity != null && !activity.isFinishing()) {
+                ProgressBar progressBar = activity.findViewById(R.id.progress_bar);
                 TextView imageDetail = activity.findViewById(R.id.image_details);
+
+                progressBar.setVisibility(View.GONE);
+                imageDetail.setVisibility(View.VISIBLE);
+
                 imageDetail.setText(result);
             }
         }
@@ -281,7 +293,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void callCloudVision(final Bitmap bitmap) {
         // Switch text to loading
-        mImageDetails.setText(R.string.loading_message);
+        mImageDetails.setVisibility(View.GONE);
+        mProgressBar.setVisibility(View.VISIBLE);
 
         // Do the real work in an async task, because we need to use the network anyway
         try {
