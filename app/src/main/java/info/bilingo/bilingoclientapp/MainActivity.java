@@ -17,8 +17,12 @@
 package info.bilingo.bilingoclientapp;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -55,6 +59,7 @@ import com.google.api.services.vision.v1.model.Image;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
@@ -137,12 +142,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        Bitmap bitmap = null;
+
         if (requestCode == GALLERY_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-            uploadImage(data.getData());
+            Uri uri = data.getData();
+            bitmap = transformBitmap(getBitmapFromUri(uri), uri);
         } else if (requestCode == CAMERA_IMAGE_REQUEST && resultCode == RESULT_OK) {
-            Uri photoUri = FileProvider.getUriForFile(this, getApplicationContext().getPackageName() + ".provider", getCameraFile());
-            uploadImage(photoUri);
+            Uri uri = FileProvider.getUriForFile(this, getApplicationContext().getPackageName() + ".provider", getCameraFile());
+            bitmap = transformBitmap(getBitmapFromUri(uri), uri);
         }
+
+        if (bitmap == null) {
+            Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        uploadImage(bitmap);
     }
 
     @Override
@@ -163,26 +178,73 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void uploadImage(Uri uri) {
-        if (uri != null) {
-            try {
-                // scale the image to save on bandwidth
-                Bitmap bitmap =
-                        scaleBitmapDown(
-                                MediaStore.Images.Media.getBitmap(getContentResolver(), uri),
-                                MAX_DIMENSION);
-
-                callCloudVision(bitmap);
-                mMainImage.setImageBitmap(bitmap);
-
-            } catch (IOException e) {
-                Log.d(TAG, "Image picking failed because " + e.getMessage());
-                Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
-            }
-        } else {
+    public Bitmap getBitmapFromUri(Uri uri) {
+        if (uri == null) {
             Log.d(TAG, "Image picker gave us a null image.");
-            Toast.makeText(this, R.string.image_picker_error, Toast.LENGTH_LONG).show();
+            return null;
         }
+
+        try {
+            return MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+        } catch (IOException e) {
+            Log.d(TAG, "Image picking failed because " + e.getMessage());
+            return null;
+        }
+    }
+
+    public Bitmap transformBitmap(Bitmap bitmap, Uri uri) {
+        if (bitmap == null) {
+            Log.d(TAG, "Input bitmap is null");
+            return null;
+        }
+
+        if (uri == null) {
+            Log.d(TAG, "URI is null. Not transforming");
+            return bitmap;
+        }
+
+        Bitmap result = scaleBitmapDown(bitmap, MAX_DIMENSION);
+
+        InputStream in = null;
+        try {
+            in = getContentResolver().openInputStream(uri);
+
+            ExifInterface exif = new ExifInterface(in);
+            int rotation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+                                                ExifInterface.ORIENTATION_NORMAL);
+
+            int rotationInDegrees = 0;
+            if (rotation == ExifInterface.ORIENTATION_ROTATE_90) {
+                rotationInDegrees = 90;
+            } else if (rotation == ExifInterface.ORIENTATION_ROTATE_180) {
+                rotationInDegrees = 180;
+            } else if (rotation == ExifInterface.ORIENTATION_ROTATE_270) {
+                rotationInDegrees = 270;
+            }
+
+            Matrix matrix = new Matrix();
+            if (rotation != 0) {
+                matrix.preRotate(rotationInDegrees);
+            }
+
+            result = Bitmap.createBitmap(result, 0, 0, result.getWidth(), result.getHeight(), matrix, true);
+        } catch (IOException e) {
+            Log.d(TAG, "Bitmap transformation error: " + e.getMessage());
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ignored) {}
+            }
+        }
+
+        return result;
+    }
+
+    public void uploadImage(Bitmap bitmap) {
+        // scale the image to save on bandwidth
+        callCloudVision(bitmap);
+        mMainImage.setImageBitmap(bitmap);
     }
 
     private Vision.Images.Annotate prepareAnnotationRequest(Bitmap bitmap) throws IOException {

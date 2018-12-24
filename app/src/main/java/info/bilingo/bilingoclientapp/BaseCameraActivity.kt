@@ -1,3 +1,4 @@
+
 package info.bilingo.bilingoclientapp
 
 import android.os.Bundle
@@ -15,7 +16,7 @@ abstract class BaseCameraActivity : AppCompatActivity(), View.OnClickListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        //setContentView(R.layout.activity_main)
         //btnRetry.setOnClickListener {
         //    if (cameraView.visibility == View.VISIBLE) showPreview() else hidePreview()
         //}
