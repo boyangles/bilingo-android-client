@@ -19,6 +19,7 @@ package info.bilingo.bilingoclientapp;
 import android.Manifest;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
@@ -55,6 +56,7 @@ import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse;
 import com.google.api.services.vision.v1.model.LocalizedObjectAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
+import com.google.api.services.vision.v1.model.NormalizedVertex;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -62,7 +64,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     private static final String CLOUD_VISION_API_KEY = BuildConfig.API_KEY;
@@ -81,8 +85,10 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView mRecyclerView;
     private ImageLabelAdapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
-    private ImageView mMainImage;
+    public ImageView mMainImage;
     private ProgressBar mProgressBar;
+
+    public Map<String, Bitmap> mBitmaps;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,16 +107,24 @@ public class MainActivity extends AppCompatActivity {
             builder.create().show();
         });
 
-        mRecyclerView = findViewById(R.id.rvLabel);
-        mLayoutManager = new LinearLayoutManager(this);
-        mAdapter = new ImageLabelAdapter();
-        mMainImage = findViewById(R.id.main_image);
-        mProgressBar = findViewById(R.id.progress_bar);
+        mBitmaps = new HashMap<>();
 
+        mLayoutManager = new LinearLayoutManager(this);
+        mAdapter = new ImageLabelAdapter(this);
+        mRecyclerView = findViewById(R.id.rvLabel);
         mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.setAdapter(mAdapter);
 
+        mProgressBar = findViewById(R.id.progress_bar);
         mProgressBar.setVisibility(View.GONE);
+
+        mMainImage = findViewById(R.id.main_image);
+        mMainImage.setOnClickListener((View view) -> {
+            Bitmap mainBitmap = mBitmaps.get("MAIN_BITMAP");
+            if (mainBitmap != null) {
+                mMainImage.setImageBitmap(mainBitmap);
+            }
+        });
     }
 
     public void startGalleryChooser() {
@@ -246,8 +260,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void uploadImage(Bitmap bitmap) {
+        // Clear previous references to bitmaps
+        mBitmaps.clear();
+        mBitmaps.put("MAIN_BITMAP", bitmap);
+
         // scale the image to save on bandwidth
         callCloudVision(bitmap);
+
         mMainImage.setImageBitmap(bitmap);
     }
 
@@ -357,6 +376,54 @@ public class MainActivity extends AppCompatActivity {
 
                 if (result == null) {
                     return;
+                }
+
+                Bitmap mainBitmap = activity.mBitmaps.get("MAIN_BITMAP");
+
+                AnnotateImageResponse annotateImageResponse = result.getResponses().get(0);
+                List<LocalizedObjectAnnotation> labels = annotateImageResponse.getLocalizedObjectAnnotations();
+
+                if (labels != null && labels.size() > 0 && mainBitmap != null) {
+                    Bitmap blurredBitmap = BlurUtils.fastblur(mainBitmap, 0.10f, 7);
+                    blurredBitmap = Bitmap.createScaledBitmap(blurredBitmap, mainBitmap.getWidth(), mainBitmap.getHeight(), false);
+                    activity.mBitmaps.put("BLURRED_BITMAP", blurredBitmap);
+
+                    for (int i = 0; i < labels.size(); i++) {
+                        LocalizedObjectAnnotation label = labels.get(i);
+                        List<NormalizedVertex> vertices = label.getBoundingPoly().getNormalizedVertices();
+
+                        if (vertices.size() == 4) {
+                            NormalizedVertex v0 = vertices.get(0); // Top Left
+                            NormalizedVertex v2 = vertices.get(2); // Bottom Right
+
+                            float v0x_n = (v0.getX() == null) ? 0.0f : v0.getX();
+                            float v0y_n = (v0.getY() == null) ? 0.0f : v0.getY();
+                            float v2x_n = (v2.getX() == null) ? 0.0f : v2.getX();
+                            float v2y_n = (v2.getY() == null) ? 0.0f : v2.getY();
+
+                            float bitmapWidth = mainBitmap.getWidth();
+                            float bitmapHeight = mainBitmap.getHeight();
+
+                            double v0x = Math.floor(v0x_n * bitmapWidth);
+                            double v0y = Math.floor(v0y_n * bitmapHeight);
+                            double v2x = Math.floor(v2x_n * bitmapWidth);
+                            double v2y = Math.floor(v2y_n * bitmapHeight);
+
+                            int startX = (int)Math.abs(v0x);
+                            int startY = (int)Math.abs(v0y);
+                            int w = (int)Math.abs(v2x - v0x);
+                            int h = (int)Math.abs(v2y - v0y);
+
+                            Bitmap resizedBitmap = Bitmap.createBitmap(mainBitmap, startX, startY, w, h);
+
+                            Bitmap bmOverlay = Bitmap.createBitmap(blurredBitmap.getWidth(), blurredBitmap.getHeight(), blurredBitmap.getConfig());
+                            Canvas canvas = new Canvas(bmOverlay);
+                            canvas.drawBitmap(blurredBitmap, new Matrix(), null);
+                            canvas.drawBitmap(resizedBitmap, startX, startY, null);
+
+                            activity.mBitmaps.put("BM_OVERLAY:::" + label.getMid() + "___" + i, bmOverlay);
+                        }
+                    }
                 }
 
                 populateIdentifiedItemsView(result, activity);
