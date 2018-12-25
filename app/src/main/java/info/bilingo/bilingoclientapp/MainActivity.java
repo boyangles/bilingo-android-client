@@ -17,10 +17,8 @@
 package info.bilingo.bilingoclientapp;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
 import android.net.Uri;
@@ -39,7 +37,6 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -52,9 +49,10 @@ import com.google.api.services.vision.v1.Vision;
 import com.google.api.services.vision.v1.VisionRequest;
 import com.google.api.services.vision.v1.VisionRequestInitializer;
 import com.google.api.services.vision.v1.model.AnnotateImageRequest;
+import com.google.api.services.vision.v1.model.AnnotateImageResponse;
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesRequest;
 import com.google.api.services.vision.v1.model.BatchAnnotateImagesResponse;
-import com.google.api.services.vision.v1.model.EntityAnnotation;
+import com.google.api.services.vision.v1.model.LocalizedObjectAnnotation;
 import com.google.api.services.vision.v1.model.Feature;
 import com.google.api.services.vision.v1.model.Image;
 
@@ -65,8 +63,6 @@ import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-
 
 public class MainActivity extends AppCompatActivity {
     private static final String CLOUD_VISION_API_KEY = BuildConfig.API_KEY;
@@ -82,9 +78,8 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
 
-    //private TextView mImageDetails;
     private RecyclerView mRecyclerView;
-    private RecyclerView.Adapter mAdapter;
+    private ImageLabelAdapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
     private ImageView mMainImage;
     private ProgressBar mProgressBar;
@@ -106,7 +101,6 @@ public class MainActivity extends AppCompatActivity {
             builder.create().show();
         });
 
-        //mImageDetails = findViewById(R.id.image_details);
         mRecyclerView = findViewById(R.id.rvLabel);
         mLayoutManager = new LinearLayoutManager(this);
         mAdapter = new ImageLabelAdapter();
@@ -116,7 +110,6 @@ public class MainActivity extends AppCompatActivity {
         mRecyclerView.setLayoutManager(mLayoutManager);
         mRecyclerView.setAdapter(mAdapter);
 
-        //mImageDetails.setVisibility(View.GONE);
         mProgressBar.setVisibility(View.GONE);
     }
 
@@ -306,10 +299,15 @@ public class MainActivity extends AppCompatActivity {
 
             // add the features we want
             annotateImageRequest.setFeatures(new ArrayList<Feature>() {{
-                Feature labelDetection = new Feature();
-                labelDetection.setType("LABEL_DETECTION");
-                labelDetection.setMaxResults(MAX_LABEL_RESULTS);
-                add(labelDetection);
+                Feature objectLocalization = new Feature();
+                objectLocalization.setType("OBJECT_LOCALIZATION");
+                objectLocalization.setMaxResults(MAX_LABEL_RESULTS);
+                add(objectLocalization);
+
+                //Feature labelDetection = new Feature();
+                //labelDetection.setType("LABEL_DETECTION");
+                //labelDetection.setMaxResults(MAX_LABEL_RESULTS);
+                //add(labelDetection);
             }});
 
             // Add the list of one thing to the request
@@ -354,25 +352,22 @@ public class MainActivity extends AppCompatActivity {
             MainActivity activity = mActivityWeakReference.get();
             if (activity != null && !activity.isFinishing()) {
                 ProgressBar progressBar = activity.findViewById(R.id.progress_bar);
-                //TextView imageDetail = activity.findViewById(R.id.image_details);
 
                 progressBar.setVisibility(View.GONE);
-                //imageDetail.setVisibility(View.VISIBLE);
 
                 if (result == null) {
-                    //imageDetail.setText("Cloud Vision API request failed. Check logs for details.");
                     return;
                 }
 
-                populateIdentifiedItemsView(result);
+                populateIdentifiedItemsView(result, activity);
             }
         }
     }
 
     private void callCloudVision(final Bitmap bitmap) {
         // Switch text to loading
-        //mImageDetails.setVisibility(View.GONE);
         mProgressBar.setVisibility(View.VISIBLE);
+        mAdapter.setList(new ArrayList<>());
 
         // Do the real work in an async task, because we need to use the network anyway
         try {
@@ -405,33 +400,13 @@ public class MainActivity extends AppCompatActivity {
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
     }
 
-    private static void populateIdentifiedItemsView(BatchAnnotateImagesResponse response) {
-        StringBuilder message = new StringBuilder("I found these things:\n\n");
+    private static void populateIdentifiedItemsView(BatchAnnotateImagesResponse response,
+                                                    MainActivity activity) {
+        AnnotateImageResponse annotateImageResponse = response.getResponses().get(0);
+        List<LocalizedObjectAnnotation> labels = annotateImageResponse.getLocalizedObjectAnnotations();
 
-        List<EntityAnnotation> labels = response.getResponses().get(0).getLabelAnnotations();
         if (labels != null) {
-            for (EntityAnnotation label : labels) {
-                message.append(String.format(Locale.US, "%.3f: %s", label.getScore(), label.getDescription()));
-                message.append("\n");
-            }
-        } else {
-            message.append("nothing");
+            activity.mAdapter.setList(labels);
         }
-    }
-
-    private static String convertResponseToString(BatchAnnotateImagesResponse response) {
-        StringBuilder message = new StringBuilder("I found these things:\n\n");
-
-        List<EntityAnnotation> labels = response.getResponses().get(0).getLabelAnnotations();
-        if (labels != null) {
-            for (EntityAnnotation label : labels) {
-                message.append(String.format(Locale.US, "%.3f: %s", label.getScore(), label.getDescription()));
-                message.append("\n");
-            }
-        } else {
-            message.append("nothing");
-        }
-
-        return message.toString();
     }
 }
