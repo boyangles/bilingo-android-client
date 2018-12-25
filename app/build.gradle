@@ -30,7 +30,7 @@ android {
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
-    implementation"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
     implementation 'com.wonderkiln:camerakit:0.13.1'
     testCompile 'junit:junit:4.12'
     compile 'com.android.support:appcompat-v7:27.0.2'

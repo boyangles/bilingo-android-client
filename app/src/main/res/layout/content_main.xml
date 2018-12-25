@@ -29,19 +29,27 @@
                 android:indeterminate="true"
                 android:visibility="gone" />
 
+            <ImageView
+                android:id="@+id/main_image"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:scaleType="fitCenter"/>
 
+            <!--
             <TextView
                 android:id="@+id/image_details"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:text="Use the floating action button to select an image."/>
+                -->
 
-            <ImageView
-                android:id="@+id/main_image"
+            <android.support.v7.widget.RecyclerView
+                android:id="@+id/rvLabel"
                 android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:scaleType="fitCenter"/>
+                android:layout_height="match_parent"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp" />
         </LinearLayout>
     </ScrollView>
 </RelativeLayout>

@@ -33,6 +33,8 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
@@ -80,7 +82,10 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
 
-    private TextView mImageDetails;
+    //private TextView mImageDetails;
+    private RecyclerView mRecyclerView;
+    private RecyclerView.Adapter mAdapter;
+    private RecyclerView.LayoutManager mLayoutManager;
     private ImageView mMainImage;
     private ProgressBar mProgressBar;
 
@@ -101,11 +106,17 @@ public class MainActivity extends AppCompatActivity {
             builder.create().show();
         });
 
-        mImageDetails = findViewById(R.id.image_details);
+        //mImageDetails = findViewById(R.id.image_details);
+        mRecyclerView = findViewById(R.id.rvLabel);
+        mLayoutManager = new LinearLayoutManager(this);
+        mAdapter = new ImageLabelAdapter();
         mMainImage = findViewById(R.id.main_image);
         mProgressBar = findViewById(R.id.progress_bar);
 
-        mImageDetails.setVisibility(View.GONE);
+        mRecyclerView.setLayoutManager(mLayoutManager);
+        mRecyclerView.setAdapter(mAdapter);
+
+        //mImageDetails.setVisibility(View.GONE);
         mProgressBar.setVisibility(View.GONE);
     }
 
@@ -314,7 +325,7 @@ public class MainActivity extends AppCompatActivity {
         return annotateRequest;
     }
 
-    private static class LableDetectionTask extends AsyncTask<Object, Void, String> {
+    private static class LableDetectionTask extends AsyncTask<Object, Void, BatchAnnotateImagesResponse> {
         private final WeakReference<MainActivity> mActivityWeakReference;
         private Vision.Images.Annotate mRequest;
 
@@ -324,43 +335,49 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected String doInBackground(Object... params) {
+        protected BatchAnnotateImagesResponse doInBackground(Object... params) {
             try {
                 Log.d(TAG, "created Cloud Vision request object, sending request");
                 BatchAnnotateImagesResponse response = mRequest.execute();
-                return convertResponseToString(response);
 
+                return response;
             } catch (GoogleJsonResponseException e) {
                 Log.d(TAG, "failed to make API request because " + e.getContent());
             } catch (IOException e) {
                 Log.d(TAG, "failed to make API request because of other IOException " +
                         e.getMessage());
             }
-            return "Cloud Vision API request failed. Check logs for details.";
+            return null;
         }
 
-        protected void onPostExecute(String result) {
+        protected void onPostExecute(BatchAnnotateImagesResponse result) {
             MainActivity activity = mActivityWeakReference.get();
             if (activity != null && !activity.isFinishing()) {
                 ProgressBar progressBar = activity.findViewById(R.id.progress_bar);
-                TextView imageDetail = activity.findViewById(R.id.image_details);
+                //TextView imageDetail = activity.findViewById(R.id.image_details);
 
                 progressBar.setVisibility(View.GONE);
-                imageDetail.setVisibility(View.VISIBLE);
+                //imageDetail.setVisibility(View.VISIBLE);
 
-                imageDetail.setText(result);
+                if (result == null) {
+                    //imageDetail.setText("Cloud Vision API request failed. Check logs for details.");
+                    return;
+                }
+
+                populateIdentifiedItemsView(result);
             }
         }
     }
 
     private void callCloudVision(final Bitmap bitmap) {
         // Switch text to loading
-        mImageDetails.setVisibility(View.GONE);
+        //mImageDetails.setVisibility(View.GONE);
         mProgressBar.setVisibility(View.VISIBLE);
 
         // Do the real work in an async task, because we need to use the network anyway
         try {
-            AsyncTask<Object, Void, String> labelDetectionTask = new LableDetectionTask(this, prepareAnnotationRequest(bitmap));
+            AsyncTask<Object, Void, BatchAnnotateImagesResponse> labelDetectionTask =
+                    new LableDetectionTask(this, prepareAnnotationRequest(bitmap));
             labelDetectionTask.execute();
         } catch (IOException e) {
             Log.d(TAG, "failed to make API request because of other IOException " +
@@ -386,6 +403,20 @@ public class MainActivity extends AppCompatActivity {
             resizedWidth = maxDimension;
         }
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
+    }
+
+    private static void populateIdentifiedItemsView(BatchAnnotateImagesResponse response) {
+        StringBuilder message = new StringBuilder("I found these things:\n\n");
+
+        List<EntityAnnotation> labels = response.getResponses().get(0).getLabelAnnotations();
+        if (labels != null) {
+            for (EntityAnnotation label : labels) {
+                message.append(String.format(Locale.US, "%.3f: %s", label.getScore(), label.getDescription()));
+                message.append("\n");
+            }
+        } else {
+            message.append("nothing");
+        }
     }
 
     private static String convertResponseToString(BatchAnnotateImagesResponse response) {
