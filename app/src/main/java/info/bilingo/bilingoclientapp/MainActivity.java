@@ -560,8 +560,10 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(TAG, items.get(i) + " " + translationsResources.get(i).getTranslatedText());
 
                     TranslationsResource tr = translationsResources.get(i);
+                    String translatedText = LanguageUtils.getDecoratedPhrase(tr.getTranslatedText(), targetLang);
                     activity.mTranslations.put(sourceLang + ":::" + targetLang + ":::" + items.get(i),
-                            tr.getTranslatedText());
+                            translatedText);
+
                 }
             }
         } catch (IOException e) {

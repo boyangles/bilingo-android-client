@@ -51,6 +51,7 @@ dependencies {
     compile 'com.google.http-client:google-http-client-gson:1.25.0' exclude module: 'httpclient'
     compile 'com.google.apis:google-api-services-vision:v1-rev404-1.25.0'
     compile 'com.google.apis:google-api-services-translate:v2-rev51-1.25.0'
+    compile group: 'com.belerweb', name: 'pinyin4j', version: '2.5.1'
 }
 repositories {
     mavenCentral()
