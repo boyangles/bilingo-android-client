@@ -37,8 +37,10 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.google.api.client.extensions.android.http.AndroidHttp;
@@ -104,15 +106,23 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        Spinner srcSpinner = findViewById(R.id.source_lang_spinner);
+        ArrayAdapter<CharSequence> srcAdapter = ArrayAdapter.createFromResource(this,
+                R.array.languages_array, R.layout.spinner_item);
+        srcAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        srcSpinner.setAdapter(srcAdapter);
+
+        Spinner dstSpinner = findViewById(R.id.target_lang_spinner);
+        ArrayAdapter<CharSequence> dstAdapter = ArrayAdapter.createFromResource(this,
+                R.array.languages_array, R.layout.spinner_item);
+        dstAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        dstSpinner.setAdapter(dstAdapter);
+
         FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(view -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-            builder
-                    .setMessage(R.string.dialog_select_prompt)
-                    .setPositiveButton(R.string.dialog_select_gallery, (dialog, which) -> startGalleryChooser())
-                    .setNegativeButton(R.string.dialog_select_camera, (dialog, which) -> startCamera());
-            builder.create().show();
-        });
+        fab.setOnClickListener(view -> startCamera());
+
+        FloatingActionButton gal = findViewById(R.id.gal);
+        gal.setOnClickListener(view -> startGalleryChooser());
 
         mBitmaps = new HashMap<>();
         mTranslations = new HashMap<>();
