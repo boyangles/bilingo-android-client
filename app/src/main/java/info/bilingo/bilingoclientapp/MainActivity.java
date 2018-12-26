@@ -46,6 +46,11 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.translate.Translate;
+import com.google.api.services.translate.TranslateRequest;
+import com.google.api.services.translate.TranslateRequestInitializer;
+import com.google.api.services.translate.model.TranslationsListResponse;
+import com.google.api.services.translate.model.TranslationsResource;
 import com.google.api.services.vision.v1.Vision;
 import com.google.api.services.vision.v1.VisionRequest;
 import com.google.api.services.vision.v1.VisionRequestInitializer;
@@ -67,9 +72,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String CLOUD_VISION_API_KEY = BuildConfig.API_KEY;
+    public static final String CLOUD_VISION_API_KEY = BuildConfig.API_KEY;
     public static final String FILE_NAME = "temp.jpg";
     private static final String ANDROID_CERT_HEADER = "X-Android-Cert";
     private static final String ANDROID_PACKAGE_HEADER = "X-Android-Package";
@@ -89,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar mProgressBar;
 
     public Map<String, Bitmap> mBitmaps;
+    public Map<String, String> mTranslations;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +115,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         mBitmaps = new HashMap<>();
+        mTranslations = new HashMap<>();
 
         mLayoutManager = new LinearLayoutManager(this);
         mAdapter = new ImageLabelAdapter(this);
@@ -260,6 +268,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void uploadImage(Bitmap bitmap) {
+        // Clear previous translations
+        mTranslations.clear();
+
         // Clear previous references to bitmaps
         mBitmaps.clear();
         mBitmaps.put("MAIN_BITMAP", bitmap);
@@ -268,6 +279,36 @@ public class MainActivity extends AppCompatActivity {
         callCloudVision(bitmap);
 
         mMainImage.setImageBitmap(bitmap);
+    }
+
+    public Translate.Translations.List prepareTranslateRequest(List<String> values, String sourceLang, String targetLang) throws IOException {
+        HttpTransport httpTransport = AndroidHttp.newCompatibleTransport();
+        JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
+
+        TranslateRequestInitializer requestInitializer = new TranslateRequestInitializer(CLOUD_VISION_API_KEY) {
+            @Override
+            protected  void initializeTranslateRequest(TranslateRequest<?> translateRequest)
+                    throws IOException {
+                super.initializeTranslateRequest(translateRequest);
+
+                String packageName = getPackageName();
+                translateRequest.getRequestHeaders().set(ANDROID_PACKAGE_HEADER, packageName);
+
+                String sig = PackageManagerUtils.getSignature(getPackageManager(), packageName);
+
+                translateRequest.getRequestHeaders().set(ANDROID_CERT_HEADER, sig);
+            }
+        };
+
+        Translate.Builder builder = new Translate.Builder(httpTransport, jsonFactory, null);
+        builder.setTranslateRequestInitializer(requestInitializer);
+
+        Translate translate = builder.build();
+        Translate.Translations.List list = translate.new Translations().list(values, targetLang);
+        list.setKey(CLOUD_VISION_API_KEY);
+        list.setSource(sourceLang);
+
+        return list;
     }
 
     private Vision.Images.Annotate prepareAnnotationRequest(Bitmap bitmap) throws IOException {
@@ -322,11 +363,6 @@ public class MainActivity extends AppCompatActivity {
                 objectLocalization.setType("OBJECT_LOCALIZATION");
                 objectLocalization.setMaxResults(MAX_LABEL_RESULTS);
                 add(objectLocalization);
-
-                //Feature labelDetection = new Feature();
-                //labelDetection.setType("LABEL_DETECTION");
-                //labelDetection.setMaxResults(MAX_LABEL_RESULTS);
-                //add(labelDetection);
             }});
 
             // Add the list of one thing to the request
@@ -340,6 +376,30 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "created Cloud Vision request object, sending request");
 
         return annotateRequest;
+    }
+
+    private static class TranslationTask extends AsyncTask<Object, Void, TranslationsListResponse> {
+        private Translate.Translations.List mRequest;
+
+        TranslationTask(Translate.Translations.List list) {
+            mRequest = list;
+        }
+
+        @Override
+        protected TranslationsListResponse doInBackground(Object... params) {
+            try {
+                Log.d(TAG, "created Cloud Vision request object, sending request");
+                TranslationsListResponse response = mRequest.execute();
+
+                return response;
+            } catch (GoogleJsonResponseException e) {
+                Log.d(TAG, "failed to make API request because " + e.getContent());
+            } catch (IOException e) {
+                Log.d(TAG, "failed to make API request because of other IOException " +
+                        e.getMessage());
+            }
+            return null;
+        }
     }
 
     private static class LableDetectionTask extends AsyncTask<Object, Void, BatchAnnotateImagesResponse> {
@@ -426,7 +486,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
-                populateIdentifiedItemsView(result, activity);
+                populateItemInfo(result, activity);
             }
         }
     }
@@ -465,6 +525,57 @@ public class MainActivity extends AppCompatActivity {
             resizedWidth = maxDimension;
         }
         return Bitmap.createScaledBitmap(bitmap, resizedWidth, resizedHeight, false);
+    }
+
+    private static void populateItemInfo(BatchAnnotateImagesResponse batchResult,
+                                                 MainActivity activity) {
+        AnnotateImageResponse annotateImageResponse = batchResult.getResponses().get(0);
+        List<LocalizedObjectAnnotation> labels = annotateImageResponse.getLocalizedObjectAnnotations();
+
+        String sourceLang = "en";
+        String targetLang = "zh-CN";
+        List<String> items = new ArrayList<>();
+
+        for (int i = 0; i < labels.size(); i++) {
+            items.add(labels.get(i).getName());
+        }
+
+        try {
+            AsyncTask<Object, Void, TranslationsListResponse> translationTask =
+                    new TranslationTask(activity.prepareTranslateRequest(items, sourceLang, targetLang));
+            TranslationsListResponse response = translationTask.execute().get();
+
+            List<TranslationsResource> translationsResources = null;
+            if (response != null) {
+                translationsResources = response.getTranslations();
+            }
+
+
+            if (translationsResources != null && activity != null) {
+                for (int i = 0; i < translationsResources.size(); i++) {
+                    if (i >= items.size()) {
+                        break;
+                    }
+
+                    Log.d(TAG, items.get(i) + " " + translationsResources.get(i).getTranslatedText());
+
+                    TranslationsResource tr = translationsResources.get(i);
+                    activity.mTranslations.put(sourceLang + ":::" + targetLang + ":::" + items.get(i),
+                            tr.getTranslatedText());
+                }
+            }
+        } catch (IOException e) {
+            Log.d(TAG, "failed to make API request because of other IOException " +
+                    e.getMessage());
+        } catch (InterruptedException e) {
+            Log.d(TAG, "failed to make API request because of InterruptedException " +
+                    e.getMessage());
+        } catch (ExecutionException e) {
+            Log.d(TAG, "failed to make API request because of other ExecutionException " +
+                    e.getMessage());
+        }
+
+        populateIdentifiedItemsView(batchResult, activity);
     }
 
     private static void populateIdentifiedItemsView(BatchAnnotateImagesResponse response,

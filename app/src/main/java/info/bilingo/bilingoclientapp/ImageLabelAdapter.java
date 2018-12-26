@@ -9,6 +9,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.google.api.client.extensions.android.http.AndroidHttp;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.translate.Translate;
+import com.google.api.services.translate.TranslateRequestInitializer;
 import com.google.api.services.vision.v1.model.LocalizedObjectAnnotation;
 
 import java.util.List;
@@ -39,16 +45,12 @@ public class ImageLabelAdapter extends RecyclerView.Adapter<ImageLabelAdapter.It
             itemName.setText(localizedObjectAnnotation.getName());
             itemAccuracy.setText(localizedObjectAnnotation.getScore().toString());
 
-            StringBuilder builder = new StringBuilder();
-            localizedObjectAnnotation.getBoundingPoly().getNormalizedVertices().forEach(vertex -> {
-                builder.append("(");
-                builder.append(vertex.getX());
-                builder.append(", ");
-                builder.append(vertex.getY());
-                builder.append(")\n");
-            });
-
-            itemBounds.setText(builder.toString());
+            if (mainActivity != null && mainActivity.mTranslations != null) {
+                String val = mainActivity.mTranslations.get("en:::zh-CN:::" + localizedObjectAnnotation.getName());
+                if (val != null) {
+                    itemBounds.setText(val);
+                }
+            }
 
             cv.setOnClickListener((View v)->{
                 if (mainActivity != null && mainActivity.mBitmaps != null) {
