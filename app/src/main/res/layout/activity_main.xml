@@ -25,6 +25,14 @@
                     android:layout_gravity="end"
                     android:layout_margin="@dimen/fab_margin"
                     android:background="@null"/>
+
+                <TextView
+                    android:id="@+id/trans_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end"
+                    android:text="to"/>
+
                 <Spinner
                     android:id="@+id/target_lang_spinner"
                     android:layout_width="wrap_content"
