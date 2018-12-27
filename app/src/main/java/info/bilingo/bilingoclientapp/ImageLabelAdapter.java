@@ -46,9 +46,16 @@ public class ImageLabelAdapter extends RecyclerView.Adapter<ImageLabelAdapter.It
             itemAccuracy.setText(localizedObjectAnnotation.getScore().toString());
 
             if (mainActivity != null && mainActivity.mTranslations != null) {
-                String val = mainActivity.mTranslations.get("en:::zh-CN:::" + localizedObjectAnnotation.getName());
-                if (val != null) {
-                    itemBounds.setText(val);
+                String sourceVal =
+                        mainActivity.mTranslations.get(mainActivity.mSourceLang + ":::" + localizedObjectAnnotation.getName());
+                if (sourceVal != null) {
+                    itemName.setText(sourceVal);
+                }
+
+                String targetVal =
+                        mainActivity.mTranslations.get(mainActivity.mTargetLang + ":::" + localizedObjectAnnotation.getName());
+                if (targetVal != null) {
+                    itemBounds.setText(targetVal);
                 }
             }
 

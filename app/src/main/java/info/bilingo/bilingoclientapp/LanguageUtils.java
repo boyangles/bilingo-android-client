@@ -9,7 +9,22 @@ import net.sourceforge.pinyin4j.format.HanyuPinyinToneType;
 import net.sourceforge.pinyin4j.format.HanyuPinyinVCharType;
 import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombination;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class LanguageUtils {
+    public static Map<String, String> LANG_ABBREVIATIONS = new HashMap<String, String>() {{
+        put("ENGLISH", "en");
+        put("CHINESE", "zh-CN");
+        put("DUTCH", "nl");
+        put("FRENCH", "fr");
+        put("GERMAN", "de");
+        put("HINDI", "hi");
+        put("JAPANESE", "ja");
+        put("KOREAN", "ko");
+        put("SPANISH", "es");
+    }};
+
     public static String getDecoratedPhrase(String phrase, String lang) {
         String result = new String(phrase);
 

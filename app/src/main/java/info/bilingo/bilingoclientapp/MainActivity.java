@@ -18,6 +18,7 @@ package info.bilingo.bilingoclientapp;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
@@ -37,6 +38,7 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -90,6 +92,8 @@ public class MainActivity extends AppCompatActivity {
     public static final int CAMERA_PERMISSIONS_REQUEST = 2;
     public static final int CAMERA_IMAGE_REQUEST = 3;
 
+    private SharedPreferences mPrefs;
+
     private RecyclerView mRecyclerView;
     private ImageLabelAdapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
@@ -99,9 +103,19 @@ public class MainActivity extends AppCompatActivity {
     public Map<String, Bitmap> mBitmaps;
     public Map<String, String> mTranslations;
 
+    public String mSourceLang;
+    public int mSourcePos = -1;
+    public String mTargetLang;
+    public int mTargetPos = -1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mPrefs = getPreferences(MODE_PRIVATE);
+        mSourcePos = mPrefs.getInt("SourcePos", -1);
+        mTargetPos = mPrefs.getInt("TargetPos", -1);
+
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -111,12 +125,55 @@ public class MainActivity extends AppCompatActivity {
                 R.array.languages_array, R.layout.spinner_item);
         srcAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         srcSpinner.setAdapter(srcAdapter);
+        if (mSourcePos == -1) {
+            mSourcePos = srcSpinner.getSelectedItemPosition();
+        } else {
+            srcSpinner.setSelection(mSourcePos);
+        }
+        mSourceLang =
+                LanguageUtils.LANG_ABBREVIATIONS.get(srcSpinner.getSelectedItem().toString().toUpperCase());
+        srcSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                mSourceLang =
+                        LanguageUtils.LANG_ABBREVIATIONS.get(adapterView.getItemAtPosition(position).toString().toUpperCase());
+                mSourcePos = position;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                mSourceLang = null;
+                mSourcePos = -1;
+            }
+        });
 
         Spinner dstSpinner = findViewById(R.id.target_lang_spinner);
         ArrayAdapter<CharSequence> dstAdapter = ArrayAdapter.createFromResource(this,
                 R.array.languages_array, R.layout.spinner_item);
         dstAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         dstSpinner.setAdapter(dstAdapter);
+        if (mTargetPos == -1) {
+            mTargetPos = dstSpinner.getSelectedItemPosition();
+        } else {
+            dstSpinner.setSelection(mTargetPos);
+        }
+        mTargetLang =
+                LanguageUtils.LANG_ABBREVIATIONS.get(dstSpinner.getSelectedItem().toString().toUpperCase());
+        mTargetPos = dstSpinner.getSelectedItemPosition();
+        dstSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int position, long id) {
+                mTargetLang =
+                        LanguageUtils.LANG_ABBREVIATIONS.get(adapterView.getItemAtPosition(position).toString().toUpperCase());
+                mTargetPos = position;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                mTargetLang = null;
+                mTargetPos = -1;
+            }
+        });
 
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(view -> startCamera());
@@ -143,6 +200,19 @@ public class MainActivity extends AppCompatActivity {
                 mMainImage.setImageBitmap(mainBitmap);
             }
         });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+
+        editor.putInt("SourcePos", mSourcePos);
+        editor.putInt("TargetPos", mTargetPos);
+
+        editor.commit();
     }
 
     public void startGalleryChooser() {
@@ -541,15 +611,25 @@ public class MainActivity extends AppCompatActivity {
                                                  MainActivity activity) {
         AnnotateImageResponse annotateImageResponse = batchResult.getResponses().get(0);
         List<LocalizedObjectAnnotation> labels = annotateImageResponse.getLocalizedObjectAnnotations();
-
-        String sourceLang = "en";
-        String targetLang = "zh-CN";
         List<String> items = new ArrayList<>();
 
         for (int i = 0; i < labels.size(); i++) {
-            items.add(labels.get(i).getName());
+            String labelName = labels.get(i).getName();
+            items.add(labelName);
+            activity.mTranslations.put("en:::" + labelName, labelName);
         }
 
+        if (!activity.mSourceLang.equals("en")) {
+            populateTranslationInfo(activity, items, "en", activity.mSourceLang);
+        }
+        if (!activity.mTargetLang.equals("en")) {
+            populateTranslationInfo(activity, items, "en", activity.mTargetLang);
+        }
+
+        populateIdentifiedItemsView(batchResult, activity);
+    }
+
+    private static void populateTranslationInfo(MainActivity activity, List<String> items, String sourceLang, String targetLang) {
         try {
             AsyncTask<Object, Void, TranslationsListResponse> translationTask =
                     new TranslationTask(activity.prepareTranslateRequest(items, sourceLang, targetLang));
@@ -571,8 +651,7 @@ public class MainActivity extends AppCompatActivity {
 
                     TranslationsResource tr = translationsResources.get(i);
                     String translatedText = LanguageUtils.getDecoratedPhrase(tr.getTranslatedText(), targetLang);
-                    activity.mTranslations.put(sourceLang + ":::" + targetLang + ":::" + items.get(i),
-                            translatedText);
+                    activity.mTranslations.put(targetLang + ":::" + items.get(i), translatedText);
 
                 }
             }
@@ -586,8 +665,6 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "failed to make API request because of other ExecutionException " +
                     e.getMessage());
         }
-
-        populateIdentifiedItemsView(batchResult, activity);
     }
 
     private static void populateIdentifiedItemsView(BatchAnnotateImagesResponse response,
