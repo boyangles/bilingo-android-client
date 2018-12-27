@@ -123,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
         Spinner srcSpinner = findViewById(R.id.source_lang_spinner);
         ArrayAdapter<CharSequence> srcAdapter = ArrayAdapter.createFromResource(this,
                 R.array.languages_array, R.layout.spinner_item);
-        srcAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        srcAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         srcSpinner.setAdapter(srcAdapter);
         if (mSourcePos == -1) {
             mSourcePos = srcSpinner.getSelectedItemPosition();
@@ -150,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
         Spinner dstSpinner = findViewById(R.id.target_lang_spinner);
         ArrayAdapter<CharSequence> dstAdapter = ArrayAdapter.createFromResource(this,
                 R.array.languages_array, R.layout.spinner_item);
-        dstAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        dstAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         dstSpinner.setAdapter(dstAdapter);
         if (mTargetPos == -1) {
             mTargetPos = dstSpinner.getSelectedItemPosition();
